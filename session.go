@@ -698,7 +698,7 @@ func (s *Session) MapExecuteBatchCAS(batch *Batch, dest map[string]interface{}) 
 type hostMetrics struct {
 	// Attempts is count of how many times this query has been attempted for this host.
 	// An attempt is either a retry or fetching next page of results.
-	Attempts     int
+	Attempts int
 
 	// TotalLatency is the sum of attempt latencies for this host in nanoseconds.
 	TotalLatency int64
@@ -872,7 +872,7 @@ func (q *Query) Latency() int64 {
 }
 
 func (q *Query) AddLatency(l int64, host *HostInfo) {
-	q.metrics.attempt(0, time.Duration(l) * time.Nanosecond, host, false)
+	q.metrics.attempt(0, time.Duration(l)*time.Nanosecond, host, false)
 }
 
 // Consistency sets the consistency level for this query. If no consistency
@@ -986,21 +986,22 @@ func (q *Query) execute(ctx context.Context, conn *Conn) *Iter {
 	return conn.executeQuery(ctx, q)
 }
 
-func (q *Query) attempt(keyspace string, end, start time.Time, iter *Iter, host *HostInfo) {
+func (q *Query) attempt(keyspace string, availableStreams int, end, start time.Time, iter *Iter, host *HostInfo) {
 	latency := end.Sub(start)
 	attempt, metricsForHost := q.metrics.attempt(1, latency, host, q.observer != nil)
 
 	if q.observer != nil {
 		q.observer.ObserveQuery(q.Context(), ObservedQuery{
-			Keyspace:  keyspace,
-			Statement: q.stmt,
-			Start:     start,
-			End:       end,
-			Rows:      iter.numRows,
-			Host:      host,
-			Metrics:   metricsForHost,
-			Err:       iter.err,
-			Attempt:   attempt,
+			Keyspace:         keyspace,
+			Statement:        q.stmt,
+			AvailableStreams: availableStreams,
+			Start:            start,
+			End:              end,
+			Rows:             iter.numRows,
+			Host:             host,
+			Metrics:          metricsForHost,
+			Err:              iter.err,
+			Attempt:          attempt,
 		})
 	}
 }
@@ -1608,7 +1609,7 @@ func (b *Batch) Latency() int64 {
 }
 
 func (b *Batch) AddLatency(l int64, host *HostInfo) {
-	b.metrics.attempt(0, time.Duration(l) * time.Nanosecond, host, false)
+	b.metrics.attempt(0, time.Duration(l)*time.Nanosecond, host, false)
 }
 
 // GetConsistency returns the currently configured consistency level for the batch
@@ -1731,7 +1732,7 @@ func (b *Batch) WithTimestamp(timestamp int64) *Batch {
 	return b
 }
 
-func (b *Batch) attempt(keyspace string, end, start time.Time, iter *Iter, host *HostInfo) {
+func (b *Batch) attempt(keyspace string, availablestreams int, end, start time.Time, iter *Iter, host *HostInfo) {
 	latency := end.Sub(start)
 	_, metricsForHost := b.metrics.attempt(1, latency, host, b.observer != nil)
 
@@ -1955,7 +1956,8 @@ type ObservedQuery struct {
 	// Rows is the number of rows in the current iter.
 	// In paginated queries, rows from previous scans are not counted.
 	// Rows is not used in batch queries and remains at the default value
-	Rows int
+	Rows             int
+	AvailableStreams int
 
 	// Host is the informations about the host that performed the query
 	Host *HostInfo
